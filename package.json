@@ -1,0 +1,17 @@
+{
+  "name": "restaurant-attendance",
+  "version": "1.0.0",
+  "description": "F09 ADMS punch receiver + rate-based DA calculation + reporting API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.3.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.5"
+  }
+}

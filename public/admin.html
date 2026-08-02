@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance — Employees &amp; Pay Rates</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1a1d21;
+    --muted: #62696f;
+    --line: #dfe3e8;
+    --accent: #1f6feb;
+    --accent-text: #ffffff;
+    --warn-bg: #fff8e6;
+    --warn-line: #f0c96b;
+    --danger: #b42318;
+    --ok: #067647;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --card: #1c2024;
+      --text: #e8eaed;
+      --muted: #9aa2ab;
+      --line: #2f353b;
+      --accent: #4d8ef7;
+      --accent-text: #0c1015;
+      --warn-bg: #2b2413;
+      --warn-line: #6b5620;
+      --danger: #f27a70;
+      --ok: #4ec98a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 1rem;
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.35rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1rem; margin: 2rem 0 .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 1.5rem; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; margin-bottom: .75rem;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: .75rem; }
+  .field { display: flex; flex-direction: column; gap: .25rem; flex: 1 1 8rem; min-width: 0; }
+  .field label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  input, select {
+    font: inherit; padding: .5rem .6rem; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--text);
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    padding: .5rem 1rem; border-radius: 6px;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text);
+  }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .actions { display: flex; align-items: center; gap: .75rem; margin-top: .75rem; flex-wrap: wrap; }
+  .status { font-size: .85rem; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+  .inactive { opacity: .55; }
+  .banner {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: 10px; padding: .9rem 1rem; margin-bottom: 1rem; font-size: .9rem;
+  }
+  .banner ul { margin: .5rem 0 0; padding-left: 1.2rem; }
+  .banner li { margin: .3rem 0; }
+  .banner button { padding: .2rem .6rem; font-size: .8rem; margin-left: .4rem; }
+  .hidden { display: none !important; }
+  .pill { font-size: .75rem; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: .1rem .5rem; }
+  .checkline { display: flex; align-items: center; gap: .4rem; font-size: .9rem; color: var(--muted); }
+  .checkline input { width: auto; }
+  footer { margin-top: 2.5rem; color: var(--muted); font-size: .8rem; }
+  code { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: .05rem .3rem; font-size: .85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Unlock ------------------------------------------------------------- -->
+  <section id="lock">
+    <h1>Employees &amp; Pay Rates</h1>
+    <p class="sub">Enter the API key to continue.</p>
+    <div class="card">
+      <div class="field">
+        <label for="key">API key</label>
+        <input id="key" type="password" autocomplete="current-password" placeholder="API_KEY from your .env">
+      </div>
+      <div class="actions">
+        <button id="unlock">Unlock</button>
+        <span id="lockStatus" class="status"></span>
+      </div>
+    </div>
+    <footer>The key is kept for this browser tab only and is never stored on the server.</footer>
+  </section>
+
+  <!-- Main --------------------------------------------------------------- -->
+  <section id="main" class="hidden">
+    <h1>Employees &amp; Pay Rates</h1>
+    <p class="sub">
+      The <strong>Device User ID</strong> must match the User ID set on the F09
+      itself (Menu &gt; User Mgt. &gt; New User). That ID is what links a punch
+      to a pay rate.
+    </p>
+
+    <div id="unknownBanner" class="banner hidden">
+      <strong>Punches from unregistered User IDs.</strong>
+      These IDs punched on the device but have no pay rate here, so they are
+      missing from every report until you add them.
+      <ul id="unknownList"></ul>
+    </div>
+
+    <h2>Add employee</h2>
+    <div class="card" id="addCard"></div>
+
+    <h2>Current employees <span id="count" class="pill"></span></h2>
+    <div id="list"></div>
+    <p id="empty" class="sub hidden">No employees yet — add the first one above.</p>
+
+    <footer>
+      Deactivating keeps an employee's punch history and past reports intact but
+      leaves them out of new ones. There is deliberately no delete.
+      <br><br>
+      <button class="secondary" id="lockAgain">Lock</button>
+    </footer>
+  </section>
+</div>
+
+<!-- One employee's editable row -->
+<template id="rowTpl">
+  <form class="card" autocomplete="off">
+    <div class="row">
+      <div class="field" style="flex: 0 0 6rem;">
+        <label>Device User ID</label>
+        <input name="device_user_id" readonly>
+      </div>
+      <div class="field" style="flex: 2 1 10rem;">
+        <label>Name</label>
+        <input name="name" required>
+      </div>
+      <div class="field" style="flex: 0 0 7rem;">
+        <label>Rate type</label>
+        <select name="rate_type">
+          <option value="daily">Daily</option>
+          <option value="hourly">Hourly</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:.75rem">
+      <div class="field daily-only">
+        <label>Daily rate (₹)</label>
+        <input name="daily_rate" type="number" min="0" step="1" inputmode="decimal">
+      </div>
+      <div class="field daily-only">
+        <label>Min hours for full day</label>
+        <input name="daily_min_hours" type="number" min="0.5" step="0.5" inputmode="decimal">
+      </div>
+      <div class="field hourly-only">
+        <label>Hourly rate (₹)</label>
+        <input name="hourly_rate" type="number" min="0" step="1" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Email (optional)</label>
+        <input name="email" type="email" placeholder="—">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Save</button>
+      <label class="checkline"><input type="checkbox" name="active"> Active</label>
+      <span class="status"></span>
+    </div>
+  </form>
+</template>
+
+<script>
+(function () {
+  "use strict";
+
+  const KEY_STORE = "attendance_api_key";
+  const $ = (sel, root) => (root || document).querySelector(sel);
+
+  // --- API helper ---------------------------------------------------------
+  // Every call carries the key the operator typed. A 401 means the key is
+  // wrong or was rotated — drop straight back to the lock screen rather than
+  // leaving the page showing stale data it can no longer refresh.
+  async function api(path, options) {
+    const opts = Object.assign({ headers: {} }, options);
+    opts.headers["x-api-key"] = sessionStorage.getItem(KEY_STORE) || "";
+    if (opts.body) opts.headers["Content-Type"] = "application/json";
+
+    const res = await fetch("/api" + path, opts);
+    if (res.status === 401) {
+      sessionStorage.removeItem(KEY_STORE);
+      showLock("Key rejected — enter it again.");
+      throw new Error("unauthorized");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = (data.details || []).join("; ") || data.error || ("HTTP " + res.status);
+      throw new Error(detail);
+    }
+    return data;
+  }
+
+  // --- Screens ------------------------------------------------------------
+  function showLock(message) {
+    $("#main").classList.add("hidden");
+    $("#lock").classList.remove("hidden");
+    setStatus($("#lockStatus"), message || "", message ? "err" : "");
+    $("#key").value = "";
+    $("#key").focus();
+  }
+
+  async function showMain() {
+    $("#lock").classList.add("hidden");
+    $("#main").classList.remove("hidden");
+    await Promise.all([loadEmployees(), loadUnknown()]);
+  }
+
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  // --- Employee rows ------------------------------------------------------
+  function buildRow(emp, isNew) {
+    const form = $("#rowTpl").content.firstElementChild.cloneNode(true);
+    const field = (n) => form.elements[n];
+
+    if (isNew) {
+      field("device_user_id").readOnly = false;
+      field("device_user_id").required = true;
+      field("device_user_id").placeholder = "e.g. 1";
+      field("name").placeholder = "Waiter's name";
+      field("daily_rate").value = "";
+      field("daily_min_hours").value = "6";
+      field("active").checked = true;
+      $("button[type=submit]", form).textContent = "Add employee";
+    } else {
+      field("device_user_id").value = emp.device_user_id;
+      field("name").value = emp.name;
+      field("rate_type").value = emp.rate_type;
+      field("daily_rate").value = emp.daily_rate;
+      field("daily_min_hours").value = emp.daily_min_hours;
+      field("hourly_rate").value = emp.hourly_rate;
+      field("email").value = emp.email || "";
+      field("active").checked = !!emp.active;
+      form.classList.toggle("inactive", !emp.active);
+    }
+
+    // Only show the fields that affect pay for the selected rate type, so an
+    // unused leftover value can't be mistaken for what someone is being paid.
+    const syncRateFields = () => {
+      const hourly = field("rate_type").value === "hourly";
+      form.querySelectorAll(".daily-only").forEach((el) => el.classList.toggle("hidden", hourly));
+      form.querySelectorAll(".hourly-only").forEach((el) => el.classList.toggle("hidden", !hourly));
+    };
+    field("rate_type").addEventListener("change", syncRateFields);
+    syncRateFields();
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = $(".status", form);
+      const submit = $("button[type=submit]", form);
+      const id = field("device_user_id").value.trim();
+      if (!id) return setStatus(status, "Device User ID is required", "err");
+
+      submit.disabled = true;
+      setStatus(status, "Saving…");
+      try {
+        await api("/employees/" + encodeURIComponent(id), {
+          method: "PUT",
+          body: JSON.stringify({
+            name: field("name").value,
+            rate_type: field("rate_type").value,
+            daily_rate: field("daily_rate").value,
+            daily_min_hours: field("daily_min_hours").value,
+            hourly_rate: field("hourly_rate").value,
+            email: field("email").value,
+            active: field("active").checked ? 1 : 0,
+          }),
+        });
+        if (isNew) {
+          form.reset();
+          field("daily_min_hours").value = "6";
+          field("active").checked = true;
+          syncRateFields();
+          setStatus(status, "Added", "ok");
+        } else {
+          form.classList.toggle("inactive", !field("active").checked);
+          setStatus(status, "Saved", "ok");
+        }
+        await Promise.all([loadEmployees(), loadUnknown()]);
+      } catch (err) {
+        setStatus(status, err.message, "err");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    return form;
+  }
+
+  async function loadEmployees() {
+    const employees = await api("/employees");
+    const list = $("#list");
+    list.textContent = "";
+    employees.forEach((emp) => list.appendChild(buildRow(emp, false)));
+    $("#count").textContent = employees.length + (employees.length === 1 ? " person" : " people");
+    $("#empty").classList.toggle("hidden", employees.length > 0);
+  }
+
+  // --- Unregistered device IDs -------------------------------------------
+  async function loadUnknown() {
+    let unknown = [];
+    try {
+      unknown = await api("/debug/unknown-users");
+    } catch (err) {
+      return; // diagnostic only — never block rate editing on it
+    }
+    const banner = $("#unknownBanner");
+    const list = $("#unknownList");
+    list.textContent = "";
+    banner.classList.toggle("hidden", unknown.length === 0);
+
+    unknown.forEach((row) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent =
+        "ID " + row.device_user_id + " — " + row.punch_count +
+        (row.punch_count === 1 ? " punch" : " punches") +
+        ", last " + new Date(row.last_punch).toLocaleString();
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Add this ID";
+      btn.addEventListener("click", () => {
+        const addForm = $("#addCard form");
+        addForm.elements.device_user_id.value = row.device_user_id;
+        addForm.elements.name.focus();
+        addForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      li.appendChild(label);
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  // --- Wire up ------------------------------------------------------------
+  $("#addCard").appendChild(buildRow(null, true));
+
+  async function attemptUnlock(key) {
+    sessionStorage.setItem(KEY_STORE, key);
+    setStatus($("#lockStatus"), "Checking…");
+    try {
+      await api("/employees");
+      await showMain();
+    } catch (err) {
+      if (err.message !== "unauthorized") setStatus($("#lockStatus"), err.message, "err");
+    }
+  }
+
+  $("#unlock").addEventListener("click", () => {
+    const key = $("#key").value.trim();
+    if (!key) return setStatus($("#lockStatus"), "Enter the API key", "err");
+    attemptUnlock(key);
+  });
+  $("#key").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#unlock").click(); });
+  $("#lockAgain").addEventListener("click", () => {
+    sessionStorage.removeItem(KEY_STORE);
+    showLock("");
+  });
+
+  // Resume without re-typing the key when returning to the tab.
+  const saved = sessionStorage.getItem(KEY_STORE);
+  if (saved) attemptUnlock(saved); else $("#key").focus();
+})();
+</script>
+</body>
+</html>
