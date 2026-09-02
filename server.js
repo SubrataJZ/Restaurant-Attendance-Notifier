@@ -3,6 +3,7 @@ const express = require("express");
 const path = require("path");
 const admsRoutes = require("./src/routes/adms");
 const apiRoutes = require("./src/routes/api");
+const pushRoutes = require("./src/routes/push");
 
 const app = express();
 
@@ -16,6 +17,10 @@ app.use(admsRoutes);
 
 // Your own app / n8n talks to these — protected by X-API-Key header.
 app.use("/api", apiRoutes);
+
+// easyTimePro pushes punches here (HTTP Basic auth, its own JSON body parser,
+// so it must be mounted separately from the x-api-key routes above).
+app.use("/api", pushRoutes);
 
 // Rate-management UI. The page itself holds no data — it asks the operator for
 // the API key and calls the same /api routes the key already protects, so
